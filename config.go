@@ -127,8 +127,8 @@ func (c *Config) TimeConfig() (tc *timeConfig, err error) {
 	log.Printf("past bedtime: %v\n", tc.PastBedtime(now))
 	log.Printf("before bedtime: %v\n", tc.BeforeBedtime(now))
 
-	log.Printf("past sleeptime: %v\n", tc.PastSleepTime(now))
-	log.Printf("past waketime: %v\n", tc.PastWakeTime(now))
+	log.Printf("past sleeptime: %v\n", tc.PastSleeptime(now))
+	log.Printf("past waketime: %v\n", tc.PastWaketime(now))
 
 	return
 }
@@ -141,15 +141,15 @@ func (tc *timeConfig) BeforeBedtime(refTime time.Time) bool {
 	return refTime.Before(tc.bedtime)
 }
 
-func (tc *timeConfig) PastSleepTime(refTime time.Time) bool {
+func (tc *timeConfig) PastSleeptime(refTime time.Time) bool {
 	return refTime.After(tc.sleepTime)
 }
 
-func (tc *timeConfig) PastWakeTime(refTime time.Time) bool {
+func (tc *timeConfig) PastWaketime(refTime time.Time) bool {
 	return refTime.After(tc.wakeTime)
 }
 
-func (tc *timeConfig) PastWorkTime(refTime time.Time) bool {
+func (tc *timeConfig) PastWorktime(refTime time.Time) bool {
 	return refTime.After(tc.workTime)
 }
 

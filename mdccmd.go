@@ -176,7 +176,7 @@ func addKexp(output io.Writer) (err error) {
 
 }
 
-func stopAndesetPlaylistWithKexp(output io.Writer) (err error) {
+func stopAndResetPlaylistWithKexp(output io.Writer) (err error) {
 
 	err = stopMusic(output)
 
