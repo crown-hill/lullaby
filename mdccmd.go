@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"regexp"
@@ -12,6 +13,8 @@ import (
 )
 
 func runCommandAndPrintOutput(name string, args []string, output io.Writer) (err error) {
+
+	log.Printf("command: %s %s\n", name, strings.Join(args, " "))
 
 	if output == nil {
 		output = os.Stdout
@@ -49,6 +52,10 @@ type musicPlayerStatus struct {
 
 func parseMusicStatus(buf []byte) (s *musicPlayerStatus, err error) {
 
+	//log.Println("- MUSIC STATUS RAW -------------------------------------------------------------")
+	//log.Println(string(buf))
+	//log.Println("--------------------------------------------------------------------------------")
+
 	lines := strings.Split(string(buf), "\n")
 
 	if len(lines) < 1 {
@@ -80,7 +87,7 @@ func parseMusicStatus(buf []byte) (s *musicPlayerStatus, err error) {
 	var v int64
 
 	switch len(lines) {
-	case 3:
+	case 3, 4, 5:
 		s.Title = lines[0]
 
 		isPlaying, isPaused := parseStatus(lines[1])
@@ -154,4 +161,33 @@ func playMusic(output io.Writer) (err error) {
 func stopMusic(output io.Writer) (err error) {
 
 	return runCommandAndPrintOutput("mpc", []string{"stop"}, output)
+}
+
+func clearPlaylist(output io.Writer) (err error) {
+	return runCommandAndPrintOutput("mpc", []string{"clear"}, output)
+}
+
+func addToPlaylist(music string, output io.Writer) (err error) {
+	return runCommandAndPrintOutput("mpc", []string{"add", music}, output)
+}
+
+func addKexp(output io.Writer) (err error) {
+	return addToPlaylist("http://live-aacplus-64.kexp.org/kexp64.aac", output)
+
+}
+
+func stopAndesetPlaylistWithKexp(output io.Writer) (err error) {
+
+	err = stopMusic(output)
+
+	if err == nil {
+
+		err = clearPlaylist(output)
+
+		if err == nil {
+			err = addKexp(output)
+		}
+	}
+
+	return
 }

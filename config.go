@@ -14,9 +14,13 @@ type Config struct {
 	BedTime          string
 	SleepTime        string
 	WakeTime         string
-	StartVolume      uint
+	WorkTime         string
+	BaseVolume       uint
+	WakeVolume       uint
 	VolumeDownAmount uint
+	VolumeUpAmount   uint
 	TickerInterval   string
+	Location         string
 }
 
 func DefaltConfig() *Config {
@@ -25,12 +29,16 @@ func DefaltConfig() *Config {
 
 	c.DialFile = "/dev/input/event0"
 	c.RadioStream = "http://live-aacplus-64.kexp.org/kexp64.aac"
-	c.BedTime = "9:00PM"
-	c.SleepTime = "10:00PM"
+	c.BedTime = "8:00PM"
+	c.SleepTime = "11:00PM"
 	c.WakeTime = "6:00AM"
+	c.WorkTime = "7:00AM"
 	c.VolumeDownAmount = 2
+	c.VolumeUpAmount = 2
 	c.TickerInterval = "30s"
-	c.StartVolume = 100
+	c.BaseVolume = 50
+	c.WakeVolume = 2
+	c.Location = "America/Los_Angeles"
 
 	return c
 }
@@ -39,6 +47,7 @@ type timeConfig struct {
 	bedtime   time.Time
 	sleepTime time.Time
 	wakeTime  time.Time
+	workTime  time.Time
 }
 
 func setTimeForDate(targetDate time.Time, targetTime time.Time) time.Time {
@@ -72,6 +81,11 @@ func (c *Config) TimeConfig() (tc *timeConfig, err error) {
 		return
 	}
 
+	workTime, err := time.Parse(time.Kitchen, c.WorkTime)
+	if err != nil {
+		return
+	}
+
 	if sleepTime.Before(bedTime) {
 		err = fmt.Errorf("Sleep time %s cannot be before bed time %s", c.SleepTime, c.BedTime)
 		return
@@ -82,35 +96,39 @@ func (c *Config) TimeConfig() (tc *timeConfig, err error) {
 		return
 	}
 
-	today := time.Now()
+	if workTime.Before(wakeTime) {
+		err = fmt.Errorf("Work time %s cannot be before wake time %s", c.WorkTime, c.WakeTime)
+	}
 
-	bedTimeToday := setTimeForDate(today, bedTime)
-	sleepTimeToday := setTimeForDate(today, sleepTime)
-	wakeTimeToday := setTimeForDate(today, wakeTime)
+	location, err := time.LoadLocation(c.Location)
+	if err != nil {
+		return
+	}
 
-	log.Printf("bed: %s\n", bedTimeToday)
-	log.Printf("sleep: %s\n", sleepTimeToday)
+	now := time.Now().In(location)
 
-	// if it's already past wake time, move it to tomorrow
-	//if today.After(wakeTimeToday) {
-	//	wakeTimeToday = wakeTimeToday.Add(time.Hour * 24)
-	//	}
+	log.Printf("curent %s\n", now)
 
-	log.Printf("wake: %s\n", wakeTimeToday)
+	bedTimenow := setTimeForDate(now, bedTime)
+	sleepTimenow := setTimeForDate(now, sleepTime)
+	wakeTimenow := setTimeForDate(now, wakeTime)
+
+	log.Printf("bed: %s\n", bedTimenow)
+	log.Printf("sleep: %s\n", sleepTimenow)
+
+	log.Printf("wake: %s\n", wakeTimenow)
 
 	tc = new(timeConfig)
 
-	tc.bedtime = bedTimeToday
-	tc.wakeTime = wakeTimeToday
-	tc.sleepTime = sleepTimeToday
+	tc.bedtime = bedTimenow
+	tc.wakeTime = wakeTimenow
+	tc.sleepTime = sleepTimenow
 
-	log.Printf("curent %s\n", today)
+	log.Printf("past bedtime: %v\n", tc.PastBedtime(now))
+	log.Printf("before bedtime: %v\n", tc.BeforeBedtime(now))
 
-	log.Printf("past bedtime: %v\n", tc.PastBedtime(today))
-	log.Printf("before bedtime: %v\n", tc.BeforeBedtime(today))
-
-	log.Printf("past sleeptime: %v\n", tc.PastSleepTime(today))
-	log.Printf("past waketime: %v\n", tc.PastWakeTime(today))
+	log.Printf("past sleeptime: %v\n", tc.PastSleepTime(now))
+	log.Printf("past waketime: %v\n", tc.PastWakeTime(now))
 
 	return
 }
@@ -129,6 +147,10 @@ func (tc *timeConfig) PastSleepTime(refTime time.Time) bool {
 
 func (tc *timeConfig) PastWakeTime(refTime time.Time) bool {
 	return refTime.After(tc.wakeTime)
+}
+
+func (tc *timeConfig) PastWorkTime(refTime time.Time) bool {
+	return refTime.After(tc.workTime)
 }
 
 func ReadConfig(rdr io.Reader) (c *Config, err error) {

@@ -8,8 +8,11 @@ import (
 )
 
 type State struct {
+	BedtimeStarted bool
 	BedtimeOverride   bool
 	SleeptimeOverride bool
+	WaketimeStarted bool
+	WorktimeOverride bool
 }
 
 func (state *State) clear() {
@@ -32,18 +35,22 @@ func adjustMusicPlayer(config *Config, state *State) (err error) {
 	}
 
 	now := time.Now()
+	
+	// Check times from latest to earliest
 
 	if timeConfig.PastSleepTime(now) {
 
-		log.Println("Starting Event Handler")
-
 		state.BedtimeOverride = false
+		state.BedtimeStarted = false
+		state.WaketimeStarted = false;
+		state.WorktimeOverride = false;
 
-		// It's time to sleep.
-		// If the music's playing, turn down the volume.
+		log.Printf("It's time to sleep. If the music's playing, turn down the volume.\n")
 
 		// if the volume is already zero, stop
 		if playerStatus.Volume == 0 {
+			
+			log.Println("Volume is already zero, so we'll stop the music.")
 
 			err = stopMusic(os.Stdout)
 			if err != nil {
@@ -63,48 +70,109 @@ func adjustMusicPlayer(config *Config, state *State) (err error) {
 
 			} else {
 				// if the music is already off, don't change anything
+				log.Println("Looks like the musid is alredy off.")
 			}
 		}
 
 	} else if timeConfig.PastBedtime(now) {
 
-		log.Println("It's bed time")
+		log.Printf("It's bed time. Time to get to bed and enjoy some tunes. (override %v)\n", state.BedtimeOverride)
+		
+		state.WaketimeStarted = false;
+		state.WorktimeOverride = false;
 
 		// Time to get to bed and enjoy some tunes.
-
-		if playerStatus.IsPaused &&
-			state.BedtimeOverride == false {
-
-			err = setVolume(int32(config.StartVolume), os.Stdout)
+		
+		if state.BedtimeStarted == false {
+			
+			err = stopAndesetPlaylistWithKexp(os.Stdout)
+			
+			if err == nil {
+				
+				err = setVolume(int32(config.BaseVolume), os.Stdout)
+				
+				if err == nil {
+					
+					err = playMusic(os.Stdout)
+					
+				}
+			}
+			
 			if err != nil {
 				return
 			}
+			
+			state.BedtimeStarted = true;
+		}
+
+		if playerStatus.IsPaused &&
+			state.BedtimeOverride == false {
 
 			err = togglePlayback(os.Stdout)
 			if err != nil {
 				return
 			}
 
-		} else if playerStatus.IsPlaying == false &&
-			state.BedtimeOverride == false {
-
-			err = setVolume(int32(config.StartVolume), os.Stdout)
-			if err != nil {
-				return
-			}
-
-			err = playMusic(os.Stdout)
-			if err != nil {
-				return
-			}
-
 		}
+		
+	else if timeConfig.PastWorkTime(now) {
+		
+		if playerStatus.IsPlaying() {
+			
+			err = stopMusic(os.Stdtout)
+			
+			if err != nil {
+				return
+			}
+		}
+		
+	}
 
 	} else if timeConfig.PastWakeTime(now) {
 		// TODO
 		state.BedtimeOverride = false
+		state.BedtimeStarted = false
+		state.WorktimeOverride = false;
+		
+		if state.WaketimeStarted == false {
+			
+			err = stopAndesetPlaylistWithKexp(os.Stdout)
+			
+			if err == nil {
+				
+				err = setVolume(int32(config.WakeVolume), os.Stdout)
+				
+				if err == nil {
+					
+					err = playMusic(os.Stdout)
+					
+					state.WaketimeStarted = true
+					
+				}
+			}
+			
+			if err != nil {
+				return
+			}
+			
+		
+			state.WaketimeStarted = false;	
+			
+			
+			
+		} else {
+			
+			if uint64(playerStatus.Volume) <= uint64(config.BaseVolume) {
+				
+				err = adjustVolume(int32(config.VolumeUpAmount), os.Stdout)
+			}
+			
+		}
+		
 	} else {
 		state.BedtimeOverride = false
+		state.BedtimeStarted = false
+		state.WaketimeStarted = false;
 	}
 
 	return
@@ -127,19 +195,27 @@ func (m *Machine) HandleClickUp() {
 
 	h := func() {
 
+		log.Println("Lullaby HandleClickUp")
+
 		timeConfig, err := m.config.TimeConfig()
 		if err != nil {
+			log.Printf("Error: failed to get timeConfig: %s\n", err.Error())
 			return
 		}
 
 		playerStatus, err := getMusicStatus()
 		if err != nil {
+			log.Printf("Error: failed to get music status: %s\n", err.Error())
 			return
 		}
 
 		now := time.Now()
+		
+		// Check times from latest to earliest
 
 		if timeConfig.PastSleepTime(now) {
+			
+			log.Println("Clicking past sleep time...")
 
 			if playerStatus.IsPlaying {
 
@@ -157,6 +233,9 @@ func (m *Machine) HandleClickUp() {
 			}
 
 		} else if timeConfig.PastBedtime(now) {
+			
+			log.Println("Clicking past bed time...")
+
 
 			if playerStatus.IsPlaying {
 
@@ -175,10 +254,20 @@ func (m *Machine) HandleClickUp() {
 				if err != nil {
 					log.Printf("Error: %s\n", err.Error())
 				}
-			}
+		} else if timeCongig.PastWaketime(now) {
+			
+			state.WorktimeOverride =	! sate.WorktimeOverride
+			
+			m.basicDialHandler.HandleClickUp()
+			
+			
+		} else {
+		
+			log.Println("Lullaby calling basic dial handler...")
+		
+			m.basicDialHandler.HandleClickUp()
+		
 		}
-
-		m.basicDialHandler.HandleClickUp()
 	}
 
 	e := &event{h}
@@ -204,7 +293,11 @@ func (m *Machine) HandleTimer() {
 	log.Println("Handling Timer Tick")
 
 	h := func() {
-		adjustMusicPlayer(m.config, m.state)
+		 err := adjustMusicPlayer(m.config, m.state)
+		 
+		 if err != nil {
+			 log.Printf("Error adjusting music player: %s\n", err.Error())
+		 }
 	}
 
 	e := &event{h}
@@ -214,6 +307,8 @@ func (m *Machine) HandleTimer() {
 }
 
 func (m *Machine) Start(config *Config) {
+	
+	m.basicDialHandler = new(musicControlDialHandler)
 
 	m.state = new(State)
 	m.config = config
@@ -223,8 +318,13 @@ func (m *Machine) Start(config *Config) {
 	go func() {
 		log.Println("Starting Event Handler")
 		for e := range m.events {
+			
 			log.Println("Handling Event")
 			e.handler()
+			
+			log.Println("-- POST HANDLER ----------------------------------------------------------------")
+			printMusicStatus(os.Stdout)
+			log.Println("--------------------------------------------------------------------------------")
 		}
 
 	}()
