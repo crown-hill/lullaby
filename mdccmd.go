@@ -129,7 +129,7 @@ func getMusicStatus() (s *musicPlayerStatus, err error) {
 
 func setVolume(value int32, output io.Writer) (err error) {
 
-	err = runCommandAndPrintOutput("mpc", []string{"volume", fmt.Sprintf("+%d", value)}, output)
+	err = runCommandAndPrintOutput("mpc", []string{"volume", fmt.Sprintf("%d", value)}, output)
 
 	return
 }
@@ -151,6 +151,23 @@ func adjustVolume(value int32, output io.Writer) (err error) {
 func togglePlayback(output io.Writer) (err error) {
 
 	return runCommandAndPrintOutput("mpc", []string{"toggle"}, output)
+}
+
+func hardTogglePlayback(output io.Writer) (err error) {
+	
+	status, err := getMusicStatus()
+	
+	if err != nil {
+		return err
+	}
+	
+	if status.IsPlaying {
+		err = stopMusic(output)
+	} else {
+		err = playMusic(output)
+	}
+
+	return err
 }
 
 func playMusic(output io.Writer) (err error) {

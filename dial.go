@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"time"
 )
@@ -20,12 +21,23 @@ type musicControlDialHandler struct {
 
 func (h *musicControlDialHandler) HandleClickUp() {
 
-	togglePlayback(h.outputWriter)
+	//togglePlayback(h.outputWriter)
+	hardTogglePlayback(h.outputWriter)
 
 }
 
 func (h *musicControlDialHandler) HandleTurn(clockwise bool, value int32) {
 	_ = clockwise
+	
+	// Hack?
+	// Always adjust by 1
+	
+	if value < 0 {
+		value = -1
+	} else {
+		value = 1
+	}
+	
 	adjustVolume(value, h.outputWriter)
 }
 
@@ -36,7 +48,8 @@ func runDial(handler dialHandler) {
 	f, err := os.Open("/dev/input/event0")
 
 	if err != nil {
-		panic(err)
+		log.Println("Cannot open dial file: %s\n", err.Error())
+		return
 	}
 
 	defer f.Close()

@@ -14,13 +14,13 @@ type Config struct {
 	BedTime          string
 	SleepTime        string
 	WakeTime         string
-	WorkTime         string
-	BaseVolume       uint
-	WakeVolume       uint
+	WorkTime	string
+	BaseVolume      uint
+	WakeVolume uint
 	VolumeDownAmount uint
-	VolumeUpAmount   uint
+	VolumeUpAmount uint
 	TickerInterval   string
-	Location         string
+	Location string
 }
 
 func DefaltConfig() *Config {
@@ -31,7 +31,7 @@ func DefaltConfig() *Config {
 	c.RadioStream = "http://live-aacplus-64.kexp.org/kexp64.aac"
 	c.BedTime = "8:00PM"
 	c.SleepTime = "11:00PM"
-	c.WakeTime = "6:00AM"
+	c.WakeTime = "5:45AM"
 	c.WorkTime = "7:00AM"
 	c.VolumeDownAmount = 2
 	c.VolumeUpAmount = 2
@@ -80,7 +80,7 @@ func (c *Config) TimeConfig() (tc *timeConfig, err error) {
 	if err != nil {
 		return
 	}
-
+	
 	workTime, err := time.Parse(time.Kitchen, c.WorkTime)
 	if err != nil {
 		return
@@ -95,7 +95,7 @@ func (c *Config) TimeConfig() (tc *timeConfig, err error) {
 		err = fmt.Errorf("Wake time %s cannot be after bed time %s", c.WakeTime, c.BedTime)
 		return
 	}
-
+	
 	if workTime.Before(wakeTime) {
 		err = fmt.Errorf("Work time %s cannot be before wake time %s", c.WorkTime, c.WakeTime)
 	}
@@ -106,9 +106,9 @@ func (c *Config) TimeConfig() (tc *timeConfig, err error) {
 	}
 
 	now := time.Now().In(location)
-
+	
 	log.Printf("curent %s\n", now)
-
+	
 	bedTimenow := setTimeForDate(now, bedTime)
 	sleepTimenow := setTimeForDate(now, sleepTime)
 	wakeTimenow := setTimeForDate(now, wakeTime)
@@ -152,6 +152,7 @@ func (tc *timeConfig) PastWaketime(refTime time.Time) bool {
 func (tc *timeConfig) PastWorktime(refTime time.Time) bool {
 	return refTime.After(tc.workTime)
 }
+
 
 func ReadConfig(rdr io.Reader) (c *Config, err error) {
 
